@@ -1,122 +1,137 @@
 import React from 'react';
-import PropTypes from 'prop-types';
-import ReactDOM from 'react-dom';
-import {Treebeard, decorators} from 'react-treebeard';
-import styled from '@emotion/styled';
-import styles from './FileExplorerStyle';
-import * as filters from './FileExplorerFilter';
-import { Icon, Input } from 'antd';
+import {Tree, Input} from 'antd';
 
-const data = {
-    name: 'react-treebeard',
-    toggled: true,
-    children: [
-        {
-            name: 'example',
-            children: [
-                { name: 'app.js' },
-                { name: 'data.js' },
-                { name: 'index.html' },
-                { name: 'styles.js' },
-                { name: 'webpack.config.js' }
-            ]
-        },
-        {
-            name: 'node_modules',
-            loading: true,
-            children: []
-        },
-        {
-            name: 'src',
-            children: [
-                {
-                    name: 'components',
-                    children: [
-                        { name: 'decorators.js' },
-                        { name: 'treebeard.js' }
-                    ]
-                },
-                { name: 'index.js' }
-            ]
-        },
-        {
-            name: 'themes',
-            children: [
-                { name: 'animations.js' },
-                { name: 'default.js' }
-            ]
-        },
-        { name: 'Gulpfile.js' },
-        { name: 'index.js' },
-        { name: 'package.json' }
-    ]
-};
+const {TreeNode} = Tree;
+const Search = Input.Search;
+const DirectoryTree = Tree.DirectoryTree;
 
+const x = 3;
+const y = 2;
+const z = 1;
+const gData = [];
 
-// // Example: Customising The Header Decorator To Include Icons
-decorators.Header = ({style, node}) => {
-    const iconStyle = {marginRight: '5px'};
+const generateData = (_level, _preKey, _tns) => {
+    const preKey = _preKey || '0';
+    const tns = _tns || gData;
 
-    return (
-        <div style={style.base}>
-            <div style={style.title}>
-                { node.children ? <Icon style={iconStyle} type="folder" /> : <Icon type="file" /> }
-
-                {node.name}
-            </div>
-        </div>
-    );
-};
-
-
-
-export default class FileExplorer extends React.Component {
-    constructor() {
-        super();
-
-        this.state = {data};
-        this.onToggle = this.onToggle.bind(this);
-    }
-
-    onToggle(node, toggled) {
-        const {cursor} = this.state;
-
-        if (cursor) {
-            cursor.active = false;
+    const children = [];
+    for (let i = 0; i < x; i++) {
+        const key = `${preKey}-${i}`;
+        tns.push({title: key, key});
+        if (i < y) {
+            children.push(key);
         }
+    }
+    if (_level < 0) {
+        return tns;
+    }
+    const level = _level - 1;
+    children.forEach((key, index) => {
+        tns[index].children = [];
+        return generateData(level, key, tns[index].children);
+    });
+};
+generateData(z);
 
-        node.active = true;
+const dataList = [];
+const generateList = (data) => {
+    for (let i = 0; i < data.length; i++) {
+        const node = data[i];
+        const key = node.key;
+        dataList.push({key, title: key});
         if (node.children) {
-            node.toggled = toggled;
+            generateList(node.children, node.key);
         }
+    }
+};
+generateList(gData);
 
-        this.setState({cursor: node});
+const getParentKey = (key, tree) => {
+    let parentKey;
+    for (let i = 0; i < tree.length; i++) {
+        const node = tree[i];
+        if (node.children) {
+            if (node.children.some(item => item.key === key)) {
+                parentKey = node.key;
+            } else if (getParentKey(key, node.children)) {
+                parentKey = getParentKey(key, node.children);
+            }
+        }
+    }
+    return parentKey;
+};
+
+export default class SearchTree extends React.Component {
+    state = {
+        expandedKeys: [],
+        searchValue: '',
+        autoExpandParent: true
     }
 
-    onFilterMouseUp(e) {
-        const filter = e.target.value.trim();
-        if (!filter) {
-            return this.setState({data});
-        }
-        var filtered = filters.filterTree(data, filter);
-        filtered = filters.expandFilteredNodes(filtered, filter);
-        this.setState({data: filtered});
+    onExpand = (expandedKeys) => {
+        this.setState({expandedKeys, autoExpandParent: false});
     }
 
+    onChange = (e) => {
+        const value = e.target.value;
+        const expandedKeys = dataList.map((item) => {
+            if (item.title.indexOf(value) > -1) {
+                return getParentKey(item.key, gData);
+            }
+            return null;
+        }).filter((item, i, self) => item && self.indexOf(item) === i);
+        this.setState({expandedKeys, searchValue: value, autoExpandParent: true});
+    }
 
     render() {
-        const {data: stateData, cursor} = this.state;
-
+        const {searchValue, expandedKeys, autoExpandParent} = this.state;
+        const loop = data => data.map((item) => {
+            const index = item
+                .title
+                .indexOf(searchValue);
+            const beforeStr = item
+                .title
+                .substr(0, index);
+            const afterStr = item
+                .title
+                .substr(index + searchValue.length);
+            const title = index > -1
+                ? (
+                    <span>
+                        {beforeStr}
+                        <span
+                            style={{
+                            color: '#f50'
+                        }}>{searchValue}</span>
+                        {afterStr}
+                    </span>
+                )
+                : <span>{item.title}</span>;
+            if (item.children) {
+                return (
+                    <TreeNode key={item.key} title={title}>
+                        {loop(item.children)}
+                    </TreeNode>
+                );
+            }
+            return <TreeNode key={item.key} title={title}/>;
+        });
         return (
             <div>
-                <div style={styles.searchBox}>
-                    <Input placeholder="Search" />
-                </div>
-                <div style={styles.component}>
-                    <Treebeard data={stateData}
-                               decorators={decorators}
-                               onToggle={this.onToggle}/>
-                </div>
+                <Search
+                    style={{
+                    marginBottom: 8
+                }}
+                    placeholder="Search"
+                    onChange={this.onChange}/>
+                <DirectoryTree
+                    multiple
+                    onSelect={this.onSelect}
+                    onExpand={this.onExpand}
+                    expandedKeys={expandedKeys}
+                    autoExpandParent={autoExpandParent}>
+                    {loop(gData)}
+                </DirectoryTree>
             </div>
         );
     }

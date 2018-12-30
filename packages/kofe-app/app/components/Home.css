@@ -2,3 +2,7 @@
   overflow-y: scroll;
   max-height: 150px;
 }
+
+.colStyle {
+  background-color: wheat;
+}

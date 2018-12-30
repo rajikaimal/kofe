@@ -4,27 +4,41 @@
 
 import path from 'path';
 import webpack from 'webpack';
-import { dependencies } from '../package.json';
+import {dependencies} from '../package.json';
 
 export default {
-  externals: [...Object.keys(dependencies || {})],
+  externals : [...Object.keys(dependencies || {})],
 
   module: {
     rules: [
       {
-        test: /\.jsx?$/,
-        exclude: /node_modules/,
-        use: {
-          loader: 'babel-loader',
-          options: {
-            cacheDirectory: true
+        test: /\.less$/,
+        use: [
+          {
+            loader: 'style-loader'
+          }, 
+          {
+            loader: 'css-loader', // translates CSS into CommonJS
+          }, 
+          {
+            loader: 'less-loader', // compiles Less to CSS
+            options: {
+              modifyVars: {
+                'primary-color': '#1DA57A',
+                'link-color': '#1DA57A',
+                'border-radius-base': '2px',
+                'text-color': 'white'
+              },
+              javascriptEnabled: true
+            }
           }
-        }
+        ],
+        // ...other rules
       }
     ]
   },
 
-  output: {
+  output : {
     path: path.join(__dirname, '..', 'app'),
     // https://github.com/webpack/webpack/issues/1114
     libraryTarget: 'commonjs2'
@@ -33,14 +47,12 @@ export default {
   /**
    * Determine the array of extensions that should be used to resolve modules.
    */
-  resolve: {
+  resolve : {
     extensions: ['.js', '.jsx', '.json']
   },
 
-  plugins: [
-    new webpack.EnvironmentPlugin({
-      NODE_ENV: 'production'
-    }),
+  plugins : [
+    new webpack.EnvironmentPlugin({NODE_ENV: 'production'}),
 
     new webpack.NamedModulesPlugin()
   ]
